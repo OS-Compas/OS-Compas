@@ -1,0 +1,163 @@
+
+## 📁 logs/ 目录
+
+### 14. **logs/audit.log.example**
+
+```log
+# Linux审计日志示例
+# 用于实验4.1的SELinux审计分析
+# 实际文件路径：/var/log/audit/audit.log
+
+# ============================================
+# 审计日志头信息
+# ============================================
+type=DAEMON_START msg=audit(1642500000.000:1): op=start ver=2.8.0 format=enriched kernel=5.15.0-custom auid=4294967295 pid=1234 uid=0 ses=4294967295 subj=system_u:system_r:auditd_t:s0 res=success
+type=CONFIG_CHANGE msg=audit(1642500001.000:2): auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=add_rule key="selinux_test" list=4 res=1
+
+# ============================================
+# SELinux AVC拒绝示例（强制模式下的拒绝）
+# ============================================
+type=AVC msg=audit(1642500100.000:100): avc:  denied  { write } for  pid=5678 comm="test_program" name="shadow" dev="sda1" ino=123456 scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=system_u:object_r:shadow_t:s0 tclass=file permissive=0
+
+type=SYSCALL msg=audit(1642500100.000:100): arch=c000003e syscall=2 success=no exit=-13 a0=7ffc12345678 a1=241 a2=1b6 a3=7ffc12345678 items=0 ppid=5677 pid=5678 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=1 comm="test_program" exe="/usr/bin/test_program" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="selinux_test"
+
+# ============================================
+# SELinux AVC允许示例（许可模式下的允许）
+# ============================================
+type=AVC msg=audit(1642500200.000:200): avc:  granted  { write } for  pid=6789 comm="test_program" name="testfile" dev="sda1" ino=654321 scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=unconfined_u:object_r:user_home_t:s0 tclass=file permissive=1
+
+# ============================================
+# 用户登录审计
+# ============================================
+type=USER_LOGIN msg=audit(1642500300.000:300): pid=7890 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:sshd_t:s0-s0:c0.c1023 msg='op=login acct="root" exe="/usr/sbin/sshd" hostname=? addr=192.168.1.100 terminal=ssh res=success'
+
+type=USER_AUTH msg=audit(1642500301.000:301): pid=7890 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:sshd_t:s0-s0:c0.c1023 msg='op=password acct="root" exe="/usr/sbin/sshd" hostname=192.168.1.100 addr=192.168.1.100 terminal=ssh res=success'
+
+# ============================================
+# 特权命令执行审计
+# ============================================
+type=USER_CMD msg=audit(1642500400.000:400): pid=8901 uid=1000 auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='cwd="/home/user" cmd="sudo ls -la" terminal=pts0 res=success'
+
+type=USER_START msg=audit(1642500401.000:401): pid=8902 uid=0 auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:session_open grantors=pam_limits,pam_unix,pam_permit,sss acct="root" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'
+
+# ============================================
+# 文件系统操作审计
+# ============================================
+type=PATH msg=audit(1642500500.000:500): item=0 name="/etc/passwd" inode=123457 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:etc_t:s0 nametype=NORMAL cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+type=CWD msg=audit(1642500500.000:500):  cwd="/home/user"
+type=SYSCALL msg=audit(1642500500.000:500): arch=c000003e syscall=257 success=yes exit=3 a0=ffffff9c a1=7ffd12345678 a2=0 a3=0 items=1 ppid=9012 pid=9013 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=1 comm="cat" exe="/usr/bin/cat" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="file_access"
+
+# ============================================
+# 网络连接审计
+# ============================================
+type=SOCKADDR msg=audit(1642500600.000:600): saddr=020000507F0000010019000000000000
+type=SYSCALL msg=audit(1642500600.000:600): arch=c000003e syscall=42 success=yes exit=0 a0=3 a1=7ffd12345678 a2=10 a3=7ffd12345678 items=0 ppid=1234 pid=1235 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=1 comm="curl" exe="/usr/bin/curl" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="network_connect"
+
+# ============================================
+# SELinux策略加载审计
+# ============================================
+type=MAC_POLICY_LOAD msg=audit(1642500700.000:700): auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=load_policy lsm=selinux res=1
+type=MAC_CONFIG_CHANGE msg=audit(1642500701.000:701): auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=setenforce lsm=selinux enforcing=0 old-enforcing=1 new-enforcing=0 res=1
+
+# ============================================
+# 实验相关审计事件
+# ============================================
+# 内核模块加载测试
+type=AVC msg=audit(1642500800.000:800): avc:  denied  { module_load } for  pid=2345 comm="insmod" path="/root/kasan_module.ko" dev="sda1" ino=789012 scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=system_u:object_r:modules_object_t:s0 tclass=system permissive=1
+
+type=SYSCALL msg=audit(1642500800.000:800): arch=c000003e syscall=175 success=yes exit=0 a0=7ffd12345678 a1=0 a2=0 a3=0 items=0 ppid=2344 pid=2345 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=1 comm="insmod" exe="/usr/sbin/insmod" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key=(null)
+
+# 测试文件创建
+type=AVC msg=audit(1642500900.000:900): avc:  granted  { create } for  pid=3456 comm="touch" name="selinux_test.txt" scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=unconfined_u:object_r:user_home_t:s0 tclass=file permissive=1
+
+type=PATH msg=audit(1642500900.000:900): item=0 name="selinux_test.txt" inode=890123 dev=08:01 mode=0100644 ouid=1000 ogid=1000 rdev=00:00 obj=unconfined_u:object_r:user_home_t:s0 nametype=CREATE cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+
+# ============================================
+# KASAN内存错误检测（如果配置了审计）
+# ============================================
+type=ANOM_ABEND msg=audit(1642501000.000:1000): auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=KASAN-detected pid=4567 comm="test_program" reason="slab-out-of-bounds" addr=0xffff888012345678 bytes=1
+
+# ============================================
+# 系统调用失败审计
+# ============================================
+type=SYSCALL msg=audit(1642501100.000:1100): arch=c000003e syscall=21 success=no exit=-13 a0=7ffd12345678 a1=0 a2=0 a3=0 items=0 ppid=5678 pid=5679 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=1 comm="test_program" exe="/usr/bin/test_program" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key=(null)
+
+# ============================================
+# 审计规则变更
+# ============================================
+type=CONFIG_CHANGE msg=audit(1642501200.000:1200): auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=add_rule key="kernel_lab" list=4 res=1
+type=CONFIG_CHANGE msg=audit(1642501201.000:1201): auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=remove_rule key="old_key" list=4 res=1
+
+# ============================================
+# 进程执行审计
+# ============================================
+type=EXECVE msg=audit(1642501300.000:1300): argc=3 a0="ls" a1="-la" a2="/etc/selinux/"
+type=PROCTITLE msg=audit(1642501300.000:1300): proctitle=6C73002D6C61002F6574632F73656C696E75782F
+
+# ============================================
+# 用户标识变更审计
+# ============================================
+type=USER_ACCT msg=audit(1642501400.000:1400): pid=6789 uid=0 auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_unix,pam_permit,sss acct="user" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'
+type=USER_AUTH msg=audit(1642501401.000:1401): pid=6789 uid=0 auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:authentication grantors=pam_unix,pam_permit,sss acct="user" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/0 res=success'
+
+# ============================================
+# 审计服务状态变更
+# ============================================
+type=DAEMON_END msg=audit(1642501500.000:1500): op=terminate auid=1000 pid=7890 res=success
+type=DAEMON_START msg=audit(1642501501.000:1501): op=start ver=2.8.0 format=enriched kernel=5.15.0-custom auid=4294967295 pid=7891 uid=0 ses=4294967295 subj=system_u:system_r:auditd_t:s0 res=success
+
+# ============================================
+# SELinux测试程序特定审计
+# ============================================
+# 测试程序尝试访问敏感文件
+type=AVC msg=audit(1642501600.000:1600): avc:  denied  { read } for  pid=12345 comm="selinux_test" name="shadow" dev="sda1" ino=123456 scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=system_u:object_r:shadow_t:s0 tclass=file permissive=0
+
+# 测试程序创建测试文件
+type=AVC msg=audit(1642501601.000:1601): avc:  granted  { create write } for  pid=12345 comm="selinux_test" name="testfile.txt" scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=unconfined_u:object_r:user_home_t:s0 tclass=file permissive=1
+
+# 测试程序检查审计日志
+type=AVC msg=audit(1642501602.000:1602): avc:  granted  { read } for  pid=12345 comm="selinux_test" name="audit.log" dev="sda1" ino=654321 scontext=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 tcontext=system_u:object_r:auditd_log_t:s0 tclass=file permissive=1
+
+# ============================================
+# 实验完成标记
+# ============================================
+type=USER_END msg=audit(1642501700.000:1700): pid=12345 uid=1000 auid=1000 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:session_close grantors=pam_limits,pam_unix,pam_permit,sss acct="user" exe="/usr/bin/bash" hostname=? addr=? terminal=/dev/pts/0 res=success'
+
+# ============================================
+# 日志字段说明
+# ============================================
+# 常见字段含义：
+# type      - 事件类型 (AVC, SYSCALL, USER_LOGIN等)
+# msg=audit(时间戳:序列号) - 唯一标识
+# avc: denied/granted - SELinux访问控制决策
+# pid      - 进程ID
+# comm     - 命令名
+# scontext - 源安全上下文 (执行者)
+# tcontext - 目标安全上下文 (被访问对象)
+# tclass   - 目标类别 (file, dir, process等)
+# permissive - 是否在许可模式 (0=强制, 1=许可)
+# success  - 系统调用是否成功
+# auid     - 审计用户ID (登录时的原始用户)
+# uid/gid  - 实际用户/组ID
+# exe      - 可执行文件路径
+# key      - 审计规则键值
+# res      - 操作结果
+
+# ============================================
+# 使用这些日志进行分析的工具
+# ============================================
+# 1. 搜索特定类型的审计事件
+#    ausearch -m avc -ts today
+#
+# 2. 搜索特定程序的审计事件
+#    ausearch -c selinux_test
+#
+# 3. 生成审计报告
+#    aureport --avc
+#    aureport --summary
+#
+# 4. 分析SELinux拒绝
+#    sealert -a /var/log/audit/audit.log
+#
+# 5. 实时监控审计日志
+#    tail -f /var/log/audit/audit.log | audit2allow

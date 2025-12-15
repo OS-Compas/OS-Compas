@@ -1,0 +1,219 @@
+# SELinux测试策略模块
+# 用于实验4.1的SELinux策略测试
+# 编译命令：make -f /usr/share/selinux/devel/Makefile
+# 安装命令：semodule -i selinux_test_policy.pp
+
+policy_module(selinux_test_policy, 1.0)
+
+###########################################
+# 类型声明
+###########################################
+
+# 测试程序类型
+type selinux_test_t;
+type selinux_test_exec_t;
+application_domain(selinux_test_t, selinux_test_exec_t)
+
+# 测试文件类型
+type selinux_test_file_t;
+files_type(selinux_test_file_t)
+
+# 测试目录类型
+type selinux_test_dir_t;
+files_type(selinux_test_dir_t)
+
+# 测试套接字类型
+type selinux_test_socket_t;
+
+###########################################
+# 角色和用户许可
+###########################################
+
+# 允许用户角色运行测试程序
+role system_r types selinux_test_t;
+
+# 用户域转换
+allow user_t selinux_test_t:process transition;
+allow selinux_test_t user_t:process dyntransition;
+
+###########################################
+# 文件系统访问规则
+###########################################
+
+# 测试程序访问自己的文件
+allow selinux_test_t selinux_test_file_t:file {
+    create open read write getattr setattr lock append unlink link rename
+    ioctl map execute execute_no_trans entrypoint
+};
+
+allow selinux_test_t selinux_test_dir_t:dir {
+    create read write getattr setattr lock add_name remove_name rename
+    reparent search rmdir open
+};
+
+# 允许在/tmp目录创建测试文件
+allow selinux_test_t tmp_t:dir { write add_name remove_name };
+allow selinux_test_t tmp_t:file { create write unlink };
+
+# 允许访问系统日志
+allow selinux_test_t var_log_t:dir search;
+allow selinux_test_t auditd_log_t:file read;
+
+# 允许读取系统信息
+allow selinux_test_t proc_t:filesystem mount;
+allow selinux_test_t sysfs_t:filesystem mount;
+allow selinux_test_t proc_t:file read;
+allow selinux_test_t sysfs_t:file read;
+
+###########################################
+# 进程操作权限
+###########################################
+
+# 允许基本的进程操作
+allow selinux_test_t self:process {
+    fork sigchld sigkill sigstop signull signal
+    getsched setsched getsession getpgid setpgid
+    getcap setcap share
+};
+
+# 允许获取自己和其它进程的信息
+allow selinux_test_t domain:process {
+    getattr rlimitinh siginh noatsecure rlimitinh
+    ptrace getcap
+};
+
+###########################################
+# 网络访问权限
+###########################################
+
+# 允许基本的网络访问（如果需要）
+allow selinux_test_t self:tcp_socket create_stream_socket_perms;
+allow selinux_test_t self:udp_socket create_socket_perms;
+
+# 允许网络连接（如果需要连接到本地服务）
+allow selinux_test_t node_t:node { tcp_send tcp_recv };
+allow selinux_test_t port_t:tcp_socket name_connect;
+
+###########################################
+# 能力(capability)设置
+###########################################
+
+# 允许必要的能力
+allow selinux_test_t self:capability {
+    chown dac_override dac_read_search fowner fsetid kill
+    setgid setuid setpcap linux_immutable net_bind_service
+    net_broadcast net_admin net_raw ipc_lock ipc_owner
+    sys_module sys_rawio sys_chroot sys_ptrace sys_pacct
+    sys_admin sys_boot sys_nice sys_resource sys_time
+    sys_tty_config mknod lease audit_write audit_control
+    setfcap
+};
+
+###########################################
+# 系统调用权限
+###########################################
+
+# 允许必要的系统调用
+allow selinux_test_t self:system {
+    ipc_info sem syslog_read
+};
+
+###########################################
+# 设备访问权限
+###########################################
+
+# 允许访问终端
+allow selinux_test_t tty_device_t:chr_file { read write ioctl };
+
+# 允许访问null和zero设备
+allow selinux_test_t null_device_t:chr_file { read write };
+allow selinux_test_t zero_device_t:chr_file { read write };
+
+###########################################
+# IPC权限
+###########################################
+
+allow selinux_test_t self:sem create_sem_perms;
+allow selinux_test_t self:msgq create_msgq_perms;
+allow selinux_test_t self:shm create_shm_perms;
+
+###########################################
+# 标签转换规则
+###########################################
+
+# 允许测试程序标记自己的文件
+type_transition selinux_test_t tmp_t:file selinux_test_file_t;
+type_transition selinux_test_t tmp_t:dir selinux_test_dir_t;
+
+# 允许测试程序执行自身
+type_transition user_t selinux_test_exec_t:process selinux_test_t;
+
+###########################################
+# 布尔值设置
+###########################################
+
+# 如果需要，可以设置布尔值
+# tunable_policy(`allow_selinux_test_full_access', `
+#     allow selinux_test_t domain:process ptrace;
+#     allow selinux_test_t self:capability sys_ptrace;
+# ')
+
+###########################################
+# 约束（可选，高级功能）
+###########################################
+
+# 示例约束：防止测试程序修改系统文件
+# neverallow selinux_test_t {
+#     etc_t
+#     bin_t
+#     sbin_t
+#     lib_t
+#     usr_t
+# }:file { write setattr };
+
+###########################################
+# 默认转换
+###########################################
+
+# 设置默认上下文
+init_daemon_domain(selinux_test_t, selinux_test_exec_t)
+fs_associate(selinux_test_exec_t) { }
+
+###########################################
+# 策略版本信息
+###########################################
+
+gen_require(`
+    type user_t;
+    type tmp_t;
+    type var_log_t;
+    type auditd_log_t;
+    type proc_t;
+    type sysfs_t;
+    type tty_device_t;
+    type null_device_t;
+    type zero_device_t;
+    type etc_t, bin_t, sbin_t, lib_t, usr_t;
+')
+
+# 策略接口（可选）
+# 允许其他域访问测试文件
+interface(`selinux_test_read_files', `
+    gen_require(`
+        type selinux_test_t;
+        type selinux_test_file_t;
+    ')
+    
+    allow $1 selinux_test_file_t:file read;
+')
+
+interface(`selinux_test_manage_files', `
+    gen_require(`
+        type selinux_test_t;
+        type selinux_test_file_t;
+        type selinux_test_dir_t;
+    ')
+    
+    allow $1 selinux_test_file_t:file manage_file_perms;
+    allow $1 selinux_test_dir_t:dir manage_dir_perms;
+')
