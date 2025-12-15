@@ -1,0 +1,56 @@
+16:45:12.123456 execve("/usr/bin/ls", ["ls", "-l"], 0x7ffc5a3b2d80 /* 55 vars */) = 0
+16:45:12.123789 brk(NULL)                   = 0x55a1b2c24000
+16:45:12.123845 access("/etc/ld.so.preload", R_OK) = -1 ENOENT (No such file or directory)
+16:45:12.123901 openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+16:45:12.123956 fstat(3, {st_mode=S_IFREG|0644, st_size=125672, ...}) = 0
+16:45:12.124012 mmap(NULL, 125672, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f8a3b5e2000
+16:45:12.124068 close(3)                    = 0
+16:45:12.124124 openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+16:45:12.124180 read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\260A\2\0\0\0\0\0"..., 832) = 832
+16:45:12.124236 fstat(3, {st_mode=S_IFREG|0755, st_size=2030928, ...}) = 0
+16:45:12.124292 mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f8a3b5e0000
+16:45:12.124348 mmap(NULL, 4131552, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f8a3afc2000
+16:45:12.124404 mprotect(0x7f8a3b1a9000, 2097152, PROT_NONE) = 0
+16:45:12.124460 mmap(0x7f8a3b3a9000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1e7000) = 0x7f8a3b3a9000
+16:45:12.124516 mmap(0x7f8a3b3af000, 15072, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f8a3b3af000
+16:45:12.124572 close(3)                    = 0
+16:45:12.124628 arch_prctl(ARCH_SET_FS, 0x7f8a3b5e1500) = 0
+16:45:12.124684 mprotect(0x7f8a3b3a9000, 16384, PROT_READ) = 0
+16:45:12.124740 mprotect(0x55a1b0c6d000, 4096, PROT_READ) = 0
+16:45:12.124796 mprotect(0x7f8a3b5f3000, 4096, PROT_READ) = 0
+16:45:12.124852 munmap(0x7f8a3b5e2000, 125672) = 0
+16:45:12.124908 brk(NULL)                   = 0x55a1b2c24000
+16:45:12.124964 brk(0x55a1b2c45000)         = 0x55a1b2c45000
+16:45:12.125020 openat(AT_FDCWD, "/usr/lib/locale/locale-archive", O_RDONLY|O_CLOEXEC) = 3
+16:45:12.125076 fstat(3, {st_mode=S_IFREG|0644, st_size=3035952, ...}) = 0
+16:45:12.125132 mmap(NULL, 3035952, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f8a3acf6000
+16:45:12.125188 close(3)                    = 0
+16:45:12.125244 ioctl(1, TCGETS, {B38400 opost isig icanon echo ...}) = 0
+16:45:12.125300 getcwd("/home/student/lab1-1-syscall-tracer", 4096) = 36
+16:45:12.125356 stat(".", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+16:45:12.125412 openat(AT_FDCWD, ".", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 3
+16:45:12.125468 getdents64(3, /* 8 entries */, 32768) = 240
+16:45:12.125524 getdents64(3, /* 0 entries */, 32768) = 0
+16:45:12.125580 close(3)                    = 0
+16:45:12.125636 fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0x1), ...}) = 0
+16:45:12.125692 stat("docs", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+16:45:12.125748 stat("examples", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+16:45:12.125804 stat("file_operation_trace.log", {st_mode=S_IFREG|0644, st_size=12560, ...}) = 0
+16:45:12.125860 stat("ls_trace.log", {st_mode=S_IFREG|0644, st_size=8432, ...}) = 0
+16:45:12.125916 stat("network_trace.log", {st_mode=S_IFREG|0644, st_size=9560, ...}) = 0
+16:45:12.125972 stat("src", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+16:45:12.126028 stat("tests", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+16:45:12.126084 stat("tools", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+16:45:12.126140 write(1, "total 48\n", 9)   = 9
+16:45:12.126196 write(1, "drwxr-xr-x 2 student student 4096 Dec 10 16:30 docs\n", 51) = 51
+16:45:12.126252 write(1, "drwxr-xr-x 3 student student 4096 Dec 10 16:35 examples\n", 53) = 53
+16:45:12.126308 write(1, "-rw-r--r-- 1 student student 12560 Dec 10 16:40 file_operation_trace.log\n", 72) = 72
+16:45:12.126364 write(1, "-rw-r--r-- 1 student student  8432 Dec 10 16:45 ls_trace.log\n", 60) = 60
+16:45:12.126420 write(1, "-rw-r--r-- 1 student student  9560 Dec 10 16:42 network_trace.log\n", 62) = 62
+16:45:12.126476 write(1, "drwxr-xr-x 2 student student 4096 Dec 10 16:25 src\n", 51) = 51
+16:45:12.126532 write(1, "drwxr-xr-x 2 student student 4096 Dec 10 16:28 tests\n", 52) = 52
+16:45:12.126588 write(1, "drwxr-xr-x 2 student student 4096 Dec 10 16:20 tools\n", 52) = 52
+16:45:12.126644 close(1)                    = 0
+16:45:12.126700 close(2)                    = 0
+16:45:12.126756 exit_group(0)              = ?
+16:45:12.126812 +++ exited with 0 +++

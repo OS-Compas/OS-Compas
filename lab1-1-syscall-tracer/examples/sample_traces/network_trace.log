@@ -1,0 +1,105 @@
+16:50:23.123456 execve("./network_test", ["./network_test", "tcp", "udp", "dns"], 0x7ffc89a23d80 /* 55 vars */) = 0
+16:50:23.123789 brk(NULL)                   = 0x55a1b2c24000
+16:50:23.123845 access("/etc/ld.so.preload", R_OK) = -1 ENOENT (No such file or directory)
+16:50:23.123901 openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+16:50:23.123956 fstat(3, {st_mode=S_IFREG|0644, st_size=125672, ...}) = 0
+16:50:23.124012 mmap(NULL, 125672, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f8a3b5e2000
+16:50:23.124068 close(3)                    = 0
+16:50:23.124124 openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+16:50:23.124180 read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\260A\2\0\0\0\0\0"..., 832) = 832
+16:50:23.124236 fstat(3, {st_mode=S_IFREG|0755, st_size=2030928, ...}) = 0
+16:50:23.124292 mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f8a3b5e0000
+16:50:23.124348 mmap(NULL, 4131552, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f8a3afc2000
+16:50:23.124404 mprotect(0x7f8a3b1a9000, 2097152, PROT_NONE) = 0
+16:50:23.124460 mmap(0x7f8a3b3a9000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1e7000) = 0x7f8a3b3a9000
+16:50:23.124516 mmap(0x7f8a3b3af000, 15072, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f8a3b3af000
+16:50:23.124572 close(3)                    = 0
+16:50:23.124628 arch_prctl(ARCH_SET_FS, 0x7f8a3b5e1500) = 0
+16:50:23.124684 mprotect(0x7f8a3b3a9000, 16384, PROT_READ) = 0
+16:50:23.124740 mprotect(0x55a1b0c6d000, 4096, PROT_READ) = 0
+16:50:23.124796 mprotect(0x7f8a3b5f3000, 4096, PROT_READ) = 0
+16:50:23.124852 munmap(0x7f8a3b5e2000, 125672) = 0
+16:50:23.124908 brk(NULL)                   = 0x55a1b2c24000
+16:50:23.124964 brk(0x55a1b2c45000)         = 0x55a1b2c45000
+16:50:23.125020 openat(AT_FDCWD, "/usr/lib/locale/locale-archive", O_RDONLY|O_CLOEXEC) = 3
+16:50:23.125076 fstat(3, {st_mode=S_IFREG|0644, st_size=3035952, ...}) = 0
+16:50:23.125132 mmap(NULL, 3035952, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f8a3acf6000
+16:50:23.125188 close(3)                    = 0
+16:50:23.125244 ioctl(1, TCGETS, {B38400 opost isig icanon echo ...}) = 0
+16:50:23.125300 write(1, "网络操作示例程序 - 系统调用追踪演示\n", 46) = 46
+16:50:23.125356 write(1, "====================================\n", 38) = 38
+16:50:23.125412 write(1, "\n", 1)           = 1
+16:50:23.125468 write(1, "=== 测试TCP客户端 ===\n", 29) = 29
+16:50:23.125524 socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = 3
+16:50:23.125580 write(1, "TCP socket创建成功: fd=3\n", 30) = 30
+16:50:23.125636 write(1, "尝试连接到 127.0.0.1:8888...\n", 35) = 35
+16:50:23.125692 connect(3, {sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 ECONNREFUSED (Connection refused)
+16:50:23.125748 write(1, "连接失败 (预期): Connection refused\n", 44) = 44
+16:50:23.125804 close(3)                    = 0
+16:50:23.125860 write(1, "TCP客户端测试完成\n\n", 24) = 24
+16:50:23.125916 write(1, "=== 测试TCP服务器 ===\n", 28) = 28
+16:50:23.125972 socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = 3
+16:50:23.126028 write(1, "服务器socket创建成功: fd=3\n", 33) = 33
+16:50:23.126084 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+16:50:23.126140 bind(3, {sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("0.0.0.0")}, 16) = 0
+16:50:23.126196 write(1, "绑定到端口 8888 成功\n", 27) = 27
+16:50:23.126252 listen(3, 5)               = 0
+16:50:23.126308 write(1, "开始监听连接...\n", 22) = 22
+16:50:23.126364 fcntl(3, F_GETFL)          = 0x2 (flags O_RDWR)
+16:50:23.126420 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+16:50:23.126476 accept(3, 0x7ffc89a23c20, [16]) = -1 EAGAIN (Resource temporarily unavailable)
+16:50:23.126532 write(1, "没有客户端连接 (预期)\n", 28) = 28
+16:50:23.126588 close(3)                    = 0
+16:50:23.126644 write(1, "TCP服务器测试完成\n\n", 24) = 24
+16:50:23.126700 write(1, "=== 测试UDP客户端 ===\n", 28) = 28
+16:50:23.126756 socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) = 3
+16:50:23.126812 write(1, "UDP socket创建成功: fd=3\n", 30) = 30
+16:50:23.126868 sendto(3, "Hello UDP!", 10, 0, {sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("127.0.0.1")}, 16) = 10
+16:50:23.126924 write(1, "发送UDP数据报: 10 字节\n", 29) = 29
+16:50:23.126980 setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+16:50:23.127036 recvfrom(3, 0x7ffc89a23b30, 1023, 0, 0x7ffc89a23c10, [16]) = -1 EAGAIN (Resource temporarily unavailable)
+16:50:23.127092 write(1, "接收超时 (预期，没有UDP服务器)\n", 41) = 41
+16:50:23.127148 close(3)                    = 0
+16:50:23.127204 write(1, "UDP客户端测试完成\n\n", 24) = 24
+16:50:23.127260 write(1, "=== 测试UDP服务器 ===\n", 28) = 28
+16:50:23.127316 socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) = 3
+16:50:23.127372 write(1, "UDP服务器socket创建成功: fd=3\n", 38) = 38
+16:50:23.127428 bind(3, {sa_family=AF_INET, sin_port=htons(8889), sin_addr=inet_addr("0.0.0.0")}, 16) = 0
+16:50:23.127484 write(1, "UDP服务器绑定到端口 8889\n", 32) = 32
+16:50:23.127540 fcntl(3, F_GETFL)          = 0x2 (flags O_RDWR)
+16:50:23.127596 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+16:50:23.127652 setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+16:50:23.127708 recvfrom(3, 0x7ffc89a23b30, 1023, 0, 0x7ffc89a23c10, [16]) = -1 EAGAIN (Resource temporarily unavailable)
+16:50:23.127764 write(1, "没有收到UDP数据 (预期)\n", 30) = 30
+16:50:23.127820 close(3)                    = 0
+16:50:23.127876 write(1, "UDP服务器测试完成\n\n", 24) = 24
+16:50:23.127932 write(1, "=== 测试DNS域名解析 ===\n", 31) = 31
+16:50:23.127988 gethostbyname("localhost")  = 0x55a1b2c24a80
+16:50:23.128044 write(1, "localhost 解析结果:\n", 26) = 26
+16:50:23.128100 write(1, "  正式主机名: localhost\n", 30) = 30
+16:50:23.128156 write(1, "  地址类型: IPv4\n", 23) = 23
+16:50:23.128212 write(1, "  地址 1: 127.0.0.1\n", 26) = 26
+16:50:23.128268 gethostbyname("nonexistent-domain-that-should-not-exist.local") = 0
+16:50:23.128324 write(1, "域名解析失败 (预期): Unknown host\n", 43) = 43
+16:50:23.128380 write(1, "DNS解析测试完成\n\n", 23) = 23
+16:50:23.128436 write(1, "=== 测试网络地址转换 ===\n", 32) = 32
+16:50:23.128492 inet_pton(AF_INET, "192.168.1.1", 0x7ffc89a23b40) = 1
+16:50:23.128548 write(1, "IPv4地址转换:\n", 20) = 20
+16:50:23.128604 write(1, "  字符串 -> 二进制: 192.168.1.1 -> 0x101a8c0\n", 55) = 55
+16:50:23.128660 inet_ntop(AF_INET, 0x7ffc89a23b40, 0x7ffc89a23b60, 16) = 0x7ffc89a23b60
+16:50:23.128716 write(1, "  二进制 -> 字符串: 0x101a8c0 -> 192.168.1.1\n", 57) = 57
+16:50:23.128772 inet_pton(AF_INET6, "::1", 0x7ffc89a23b80) = 1
+16:50:23.128828 write(1, "IPv6地址转换:\n", 20) = 20
+16:50:23.128884 write(1, "  字符串 -> 二进制: ::1 -> 成功\n", 41) = 41
+16:50:23.128940 inet_ntop(AF_INET6, 0x7ffc89a23b80, 0x7ffc89a23ba0, 46) = 0x7ffc89a23ba0
+16:50:23.128996 write(1, "  二进制 -> 字符串: -> ::1\n", 33) = 33
+16:50:23.129052 inet_pton(AF_INET, "invalid.ip.address", 0x7ffc89a23b40) = 0
+16:50:23.129108 write(1, "测试无效地址处理:\n", 25) = 25
+16:50:23.129164 write(1, "  无效地址检测: 正确拒绝无效地址\n", 43) = 43
+16:50:23.129220 write(1, "地址转换测试完成\n\n", 23) = 23
+16:50:23.129276 write(1, "所有网络操作测试完成！\n", 29) = 29
+16:50:23.129332 write(1, "可以使用以下命令观察系统调用:\n", 41) = 41
+16:50:23.129388 write(1, "  strace -o network_test_trace.log ./network_test\n", 53) = 53
+16:50:23.129444 write(1, "  python3 ../src/syscall_tracer.py -f network_test_trace.log --visualize\n", 76) = 76
+16:50:23.129500 exit_group(0)              = ?
+16:50:23.129556 +++ exited with 0 +++
