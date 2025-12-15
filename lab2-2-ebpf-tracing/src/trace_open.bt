@@ -1,0 +1,59 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * trace_open.bt
+ * 跟踪系统中所有open系统调用，显示进程名和文件名
+ */
+
+BEGIN
+{
+    printf("开始跟踪open/openat系统调用...\n");
+    printf("按Ctrl+C停止\n");
+    printf("================================\n");
+}
+
+tracepoint:syscalls:sys_enter_open,
+tracepoint:syscalls:sys_enter_openat
+{
+    $filename = str(args->filename);
+    $flags = args->flags;
+    
+    // 解析flags为可读格式
+    $flags_str = "";
+    
+    if ($flags & 0x1) {  // O_WRONLY
+        $flags_str = $flags_str . "WRONLY|";
+    }
+    if ($flags & 0x2) {  // O_RDWR
+        $flags_str = $flags_str . "RDWR|";
+    }
+    if ($flags & 0x40) {  // O_CREAT
+        $flags_str = $flags_str . "CREAT|";
+    }
+    if ($flags & 0x200) {  // O_TRUNC
+        $flags_str = $flags_str . "TRUNC|";
+    }
+    if ($flags & 0x400) {  // O_APPEND
+        $flags_str = $flags_str . "APPEND|";
+    }
+    
+    printf("[%s] PID %d (TID %d) 打开文件: %s [flags: %s]\n", 
+           comm, pid, tid, $filename, $flags_str);
+    
+    // 统计
+    @total_opens = count();
+    @opens_by_process[comm] = count();
+    @opens_by_pid[pid] = count();
+}
+
+END
+{
+    printf("\n=== 跟踪结束 ===\n");
+    printf("总打开次数: %d\n", @total_opens);
+    
+    printf("\n按进程统计:\n");
+    print(@opens_by_process, 10);
+    
+    printf("\n按PID统计:\n");
+    print(@opens_by_pid, 10);
+}

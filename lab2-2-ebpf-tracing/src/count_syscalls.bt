@@ -1,0 +1,56 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * count_syscalls.bt
+ * 统计每个进程的系统调用数量
+ */
+
+BEGIN
+{
+    printf("开始统计系统调用...\n");
+    printf("按Ctrl+C结束统计\n");
+    printf("进程名\t\t调用次数\t占比\n");
+    printf("====================================\n");
+    
+    @start_time = nsecs;
+}
+
+tracepoint:syscalls:sys_enter_*
+{
+    @total_calls = count();
+    @calls_by_proc[comm] = count();
+    @calls_by_type[probe] = count();
+}
+
+interval:s:5
+{
+    $elapsed = (nsecs - @start_time) / 1000000000;
+    printf("\n[运行 %d 秒] 总系统调用: %d (%.1f/秒)\n", 
+           $elapsed, @total_calls, @total_calls / $elapsed);
+    
+    printf("Top 5 进程:\n");
+    $i = 0;
+    foreach ([$proc, $count] in @calls_by_proc + 5) {
+        $percentage = $count * 100.0 / @total_calls;
+        printf("  %-16s %10d (%5.1f%%)\n", $proc, $count, $percentage);
+        $i++;
+    }
+}
+
+END
+{
+    $total_time = (nsecs - @start_time) / 1000000000;
+    
+    printf("\n=== 最终统计结果 ===\n");
+    printf("总运行时间: %d 秒\n", $total_time);
+    printf("总系统调用: %d 次\n", @total_calls);
+    printf("平均频率: %.1f 次/秒\n", @total_calls / $total_time);
+    
+    printf("\nTop 10 进程排名:\n");
+    printf("================\n");
+    print(@calls_by_proc, 10);
+    
+    printf("\nTop 10 系统调用类型:\n");
+    printf("===================\n");
+    print(@calls_by_type, 10);
+}

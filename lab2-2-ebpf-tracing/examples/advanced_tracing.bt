@@ -1,0 +1,527 @@
+
+### 2. 高级跟踪示例
+
+**examples/advanced_tracing.bt**
+
+```bash
+#!/usr/bin/env bpftrace
+
+/*
+ * advanced_tracing.bt
+ * 高级综合跟踪示例：系统性能分析仪表板
+ * 
+ * 功能：
+ * 1. 实时CPU、内存、磁盘、网络监控
+ * 2. 进程级资源使用统计
+ * 3. 异常检测和告警
+ * 4. 历史趋势分析
+ * 5. 交互式控制面板
+ */
+
+#include <linux/sched.h>
+
+// 全局配置
+BEGIN
+{
+    printf("\033[2J\033[H");  // 清屏
+    printf("⚡ eBPF 高级系统跟踪仪表板\n");
+    printf("===============================\n");
+    printf("启动时间: %s\n", strftime("%Y-%m-%d %H:%M:%S", nsecs));
+    printf("内核版本: %s\n", kversion);
+    printf("运行模式: 综合监控\n");
+    printf("===============================\n\n");
+    
+    // 配置参数
+    @refresh_interval = 2;      // 刷新间隔（秒）
+    @history_size = 30;         // 历史数据保留（秒）
+    @alert_thresholds.cpu = 80; // CPU告警阈值（%）
+    @alert_thresholds.mem = 90; // 内存告警阈值（%）
+    @alert_thresholds.io = 100; // I/O告警阈值（MB/s）
+    @alert_thresholds.net = 50; // 网络告警阈值（MB/s）
+    
+    // 初始化数据结构
+    @start_time = nsecs;
+    @alerts = 0;
+    
+    printf("初始化完成，开始监控...\n");
+    sleep(1);
+}
+
+// ========== 1. CPU监控 ==========
+
+// CPU使用率跟踪
+tracepoint:sched:sched_stat_runtime
+{
+    $cpu_time = args->runtime;
+    $comm = comm;
+    
+    // 按进程统计CPU时间
+    @cpu_by_process[$comm] = sum($cpu_time);
+    
+    // 总CPU时间
+    @total_cpu_time = sum($cpu_time);
+    
+    // CPU时间分布（按CPU核心）
+    @cpu_by_core[cpu] = sum($cpu_time);
+}
+
+// 上下文切换跟踪
+tracepoint:sched:sched_switch
+{
+    @context_switches = count();
+    @switch_by_process[args->prev_comm] = count();
+}
+
+// ========== 2. 内存监控 ==========
+
+// 页面分配跟踪
+tracepoint:kmem:mm_page_alloc
+{
+    $order = args->order;
+    $pages = 1 << $order;  // 计算分配的页面数
+    
+    @page_allocations = count();
+    @pages_allocated = sum($pages);
+    @alloc_by_process[comm] = sum($pages);
+    
+    // 按分配大小统计
+    @alloc_by_size[$order] = count();
+}
+
+// 页面释放跟踪
+tracepoint:kmem:mm_page_free
+{
+    $order = args->order;
+    $pages = 1 << $order;
+    
+    @page_frees = count();
+    @pages_freed = sum($pages);
+}
+
+// 内存压缩跟踪
+tracepoint:vmscan:mm_vmscan_direct_reclaim_begin
+{
+    @direct_reclaims = count();
+}
+
+tracepoint:vmscan:mm_vmscan_direct_reclaim_end
+{
+    if (@direct_reclaims > 0) {
+        @direct_reclaims--;
+    }
+}
+
+// ========== 3. 磁盘I/O监控 ==========
+
+// 磁盘I/O请求
+tracepoint:block:block_rq_issue
+{
+    $sector = args->sector;
+    $bytes = args->bytes;
+    $comm = comm;
+    
+    // 记录开始时间
+    @io_start_time[$sector] = nsecs;
+    @io_process[$sector] = $comm;
+    @io_size[$sector] = $bytes;
+    
+    // 统计
+    @io_requests = count();
+    @io_bytes = sum($bytes);
+    @io_by_process[$comm] = sum($bytes);
+    
+    // 按设备统计
+    @io_by_device[args->dev] = sum($bytes);
+}
+
+// 磁盘I/O完成
+tracepoint:block:block_rq_complete
+{
+    $sector = args->sector;
+    
+    if (@io_start_time[$sector]) {
+        // 计算延迟
+        $latency = nsecs - @io_start_time[$sector];
+        $process = @io_process[$sector];
+        $size = @io_size[$sector];
+        
+        // 延迟统计
+        @io_latency = hist($latency / 1000);  // 转换为微秒
+        
+        // 按进程统计延迟
+        @io_latency_by_process[$process] = avg($latency);
+        
+        // 清理
+        delete(@io_start_time[$sector]);
+        delete(@io_process[$sector]);
+        delete(@io_size[$sector]);
+    }
+}
+
+// ========== 4. 网络监控 ==========
+
+// 网络发送
+tracepoint:net:net_dev_queue
+{
+    $len = args->len;
+    $comm = comm;
+    
+    @net_tx_packets = count();
+    @net_tx_bytes = sum($len);
+    @net_tx_by_process[$comm] = sum($len);
+    
+    // 按协议统计
+    @net_tx_by_protocol[args->protocol] = sum($len);
+}
+
+// 网络接收
+tracepoint:net:netif_receive_skb
+{
+    $len = args->len;
+    $comm = comm;
+    
+    @net_rx_packets = count();
+    @net_rx_bytes = sum($len);
+    @net_rx_by_process[$comm] = sum($len);
+}
+
+// TCP连接跟踪
+tracepoint:tcp:tcp_connect
+{
+    @tcp_connects = count();
+    @tcp_connect_by_process[comm] = count();
+}
+
+// ========== 5. 文件系统监控 ==========
+
+// 文件打开跟踪
+tracepoint:syscalls:sys_enter_open,
+tracepoint:syscalls:sys_enter_openat
+{
+    $filename = str(args->filename);
+    $comm = comm;
+    
+    @file_opens = count();
+    @file_opens_by_process[$comm] = count();
+    
+    // 记录热门文件
+    @hot_files[$filename] = count();
+}
+
+// 文件读写跟踪
+tracepoint:syscalls:sys_enter_read
+{
+    @file_reads = count();
+    @read_bytes = sum(args->count);
+}
+
+tracepoint:syscalls:sys_enter_write
+{
+    @file_writes = count();
+    @write_bytes = sum(args->count);
+}
+
+// ========== 6. 进程监控 ==========
+
+// 进程创建
+tracepoint:sched:sched_process_fork
+{
+    @process_forks = count();
+    @forks_by_process[args->parent_comm] = count();
+}
+
+// 进程退出
+tracepoint:sched:sched_process_exit
+{
+    @process_exits = count();
+}
+
+// ========== 7. 中断监控 ==========
+
+// 硬件中断
+tracepoint:irq:irq_handler_entry
+{
+    @irqs = count();
+    @irqs_by_number[args->irq] = count();
+}
+
+// 软中断
+tracepoint:irq:softirq_entry
+{
+    @softirqs = count();
+    @softirqs_by_vec[args->vec] = count();
+}
+
+// ========== 主显示循环 ==========
+
+interval:s:@refresh_interval
+{
+    $current_time = nsecs;
+    $elapsed_seconds = ($current_time - @start_time) / 1000000000;
+    
+    // 清屏并显示标题
+    printf("\033[2J\033[H");
+    printf("⚡ eBPF 高级系统跟踪仪表板 | 运行时间: %d秒\n", $elapsed_seconds);
+    printf("更新时间: %s | 告警: %d\n", 
+           strftime("%H:%M:%S", $current_time), 
+           @alerts);
+    printf("===========================================================\n\n");
+    
+    // 1. 系统概览
+    printf("📊 系统概览:\n");
+    printf("------------\n");
+    
+    // CPU使用率
+    $total_cpu_ms = @total_cpu_time / 1000000;
+    $cpu_percent = ($total_cpu_ms / (@refresh_interval * 1000)) * 100 * 100; // 估算百分比
+    
+    // 内存使用
+    $mem_pages = @pages_allocated - @pages_freed;
+    $mem_mb = $mem_pages * 4 / 1024;  // 每页4KB，转换为MB
+    
+    // I/O吞吐量
+    $io_mb = @io_bytes / 1024 / 1024;
+    $io_mbps = $io_mb / @refresh_interval;
+    
+    // 网络吞吐量
+    $net_mb = (@net_tx_bytes + @net_rx_bytes) / 1024 / 1024;
+    $net_mbps = $net_mb / @refresh_interval;
+    
+    printf("CPU: %6.1f%% | 内存: %6.1f MB | I/O: %6.1f MB/s | 网络: %6.1f MB/s\n\n",
+           $cpu_percent > 100 ? 100 : $cpu_percent,
+           $mem_mb,
+           $io_mbps,
+           $net_mbps);
+    
+    // 2. 进程资源使用排行
+    printf("🏃 进程资源使用 (Top 5):\n");
+    printf("-----------------------\n");
+    printf("%-20s %8s %8s %8s %8s\n", 
+           "进程", "CPU(ms)", "内存(MB)", "I/O(MB)", "网络(MB)");
+    printf("%-20s %8s %8s %8s %8s\n",
+           "----", "-------", "--------", "-------", "--------");
+    
+    $i = 0;
+    foreach ([$process, $cpu] in @cpu_by_process limit 5) {
+        $cpu_ms = $cpu / 1000000;
+        $mem_pages = @alloc_by_process[$process] - @freed_by_process[$process];
+        $mem_mb = $mem_pages * 4 / 1024;
+        $io_mb = @io_by_process[$process] / 1024 / 1024;
+        $net_mb = (@net_tx_by_process[$process] + @net_rx_by_process[$process]) / 1024 / 1024;
+        
+        printf("%-20s %8.1f %8.1f %8.1f %8.1f\n",
+               $process, $cpu_ms, $mem_mb, $io_mb, $net_mb);
+        $i++;
+    }
+    printf("\n");
+    
+    // 3. 磁盘I/O详情
+    printf("💾 磁盘I/O统计:\n");
+    printf("--------------\n");
+    printf("请求数: %d | 吞吐量: %.1f MB/s | 平均延迟: %.1f μs\n\n",
+           @io_requests,
+           $io_mbps,
+           avg(@io_latency));
+    
+    // 4. 网络详情
+    printf("🌐 网络统计:\n");
+    printf("-----------\n");
+    printf("发送: %d 包, %.1f MB/s | 接收: %d 包, %.1f MB/s | TCP连接: %d\n\n",
+           @net_tx_packets,
+           @net_tx_bytes / 1024 / 1024 / @refresh_interval,
+           @net_rx_packets,
+           @net_rx_bytes / 1024 / 1024 / @refresh_interval,
+           @tcp_connects);
+    
+    // 5. 文件系统活动
+    printf("📁 文件系统活动:\n");
+    printf("---------------\n");
+    printf("打开: %d | 读取: %d | 写入: %d | 热门文件: %d\n\n",
+           @file_opens,
+           @file_reads,
+           @file_writes,
+           count(@hot_files));
+    
+    // 6. 中断统计
+    printf("🔧 中断统计:\n");
+    printf("-----------\n");
+    printf("硬件中断: %d | 软中断: %d | 上下文切换: %d\n\n",
+           @irqs,
+           @softirqs,
+           @context_switches);
+    
+    // 7. 进程生命周期
+    printf("🔄 进程生命周期:\n");
+    printf("---------------\n");
+    printf("创建: %d | 退出: %d | 存活进程: %d\n\n",
+           @process_forks,
+           @process_exits,
+           @process_forks - @process_exits);
+    
+    // 8. 告警检查
+    printf("🚨 告警检查:\n");
+    printf("-----------\n");
+    
+    $alerts_found = 0;
+    
+    // CPU告警
+    if ($cpu_percent > @alert_thresholds.cpu) {
+        printf("⚠  CPU使用率过高: %.1f%% (阈值: %d%%)\n", 
+               $cpu_percent, @alert_thresholds.cpu);
+        $alerts_found = 1;
+    }
+    
+    // 内存告警
+    if ($mem_mb > @alert_thresholds.mem * 1024) {  // 转换为MB
+        printf("⚠  内存使用过高: %.1f MB (阈值: %d MB)\n",
+               $mem_mb, @alert_thresholds.mem * 1024);
+        $alerts_found = 1;
+    }
+    
+    // I/O告警
+    if ($io_mbps > @alert_thresholds.io) {
+        printf("⚠  磁盘I/O过高: %.1f MB/s (阈值: %d MB/s)\n",
+               $io_mbps, @alert_thresholds.io);
+        $alerts_found = 1;
+    }
+    
+    // 网络告警
+    if ($net_mbps > @alert_thresholds.net) {
+        printf("⚠  网络流量过高: %.1f MB/s (阈值: %d MB/s)\n",
+               $net_mbps, @alert_thresholds.net);
+        $alerts_found = 1;
+    }
+    
+    if (!$alerts_found) {
+        printf("✅ 所有系统指标正常\n");
+    }
+    
+    // 9. 历史趋势（简化的ASCII图表）
+    if ($elapsed_seconds % 10 == 0) {
+        printf("\n📈 CPU使用率趋势 (最近%d秒):\n", @history_size);
+        
+        // 存储当前数据点
+        $time_index = $elapsed_seconds % @history_size;
+        @cpu_history[$time_index] = $cpu_percent;
+        
+        // 绘制简化的ASCII图表
+        for ($i = 0; $i < @history_size; $i++) {
+            $value = @cpu_history[($time_index - $i) % @history_size];
+            if ($value == 0) {
+                printf("_");
+            } else if ($value < 25) {
+                printf("▁");
+            } else if ($value < 50) {
+                printf("▂");
+            } else if ($value < 75) {
+                printf("▃");
+            } else {
+                printf("▅");
+            }
+        }
+        printf(" %.1f%%\n", $cpu_percent);
+    }
+    
+    printf("\n===========================================================\n");
+    printf("按 Ctrl+C 停止监控 | 刷新间隔: %d秒\n", @refresh_interval);
+    
+    // 重置计数器（保留历史数据）
+    clear(@total_cpu_time);
+    clear(@io_bytes);
+    clear(@net_tx_bytes);
+    clear(@net_rx_bytes);
+    clear(@file_opens);
+    clear(@file_reads);
+    clear(@file_writes);
+    
+    // 清理进程统计（保留热门进程）
+    foreach ([$process, $value] in @cpu_by_process) {
+        if ($value < 1000000) {  // 小于1ms的忽略
+            delete(@cpu_by_process[$process]);
+        }
+    }
+    
+    // 清理旧数据
+    $old_time = $current_time - (@history_size * 1000000000);
+    // 注意：这里简化处理，实际需要根据时间戳清理
+    
+    // 更新告警计数
+    if ($alerts_found) {
+        @alerts++;
+    }
+}
+
+// ========== 清理和总结 ==========
+
+END
+{
+    $total_time = (nsecs - @start_time) / 1000000000;
+    
+    printf("\n\n===========================================================\n");
+    printf("📋 监控结束 - 运行时间: %.1f 秒\n", $total_time);
+    printf("===========================================================\n\n");
+    
+    // 最终统计报告
+    printf("最终统计报告:\n");
+    printf("============\n\n");
+    
+    // 1. 总体统计
+    printf("1. 总体统计:\n");
+    printf("   CPU时间: %.1f 秒\n", @total_cpu_time / 1000000000);
+    printf("   内存分配: %d 页 (%.1f MB)\n", @pages_allocated, @pages_allocated * 4 / 1024);
+    printf("   磁盘I/O: %.1f MB\n", @io_bytes / 1024 / 1024);
+    printf("   网络流量: %.1f MB\n", (@net_tx_bytes + @net_rx_bytes) / 1024 / 1024);
+    printf("   文件操作: %d 次\n", @file_opens + @file_reads + @file_writes);
+    printf("   上下文切换: %d 次\n", @context_switches);
+    printf("   中断处理: %d 次\n", @irqs + @softirqs);
+    
+    // 2. Top进程报告
+    printf("\n2. Top 进程 (按CPU时间):\n");
+    printf("   %-20s %12s %12s\n", "进程", "CPU时间(s)", "占比(%)");
+    printf("   %-20s %12s %12s\n", "----", "---------", "------");
+    
+    $i = 0;
+    foreach ([$process, $cpu] in @cpu_by_process limit 10) {
+        $cpu_seconds = $cpu / 1000000000;
+        $percentage = ($cpu_seconds / $total_time) * 100;
+        printf("   %-20s %12.2f %12.1f\n", 
+               $process, $cpu_seconds, $percentage);
+        $i++;
+    }
+    
+    // 3. 磁盘I/O报告
+    printf("\n3. 磁盘I/O延迟分布 (微秒):\n");
+    print(@io_latency);
+    
+    // 4. 告警总结
+    printf("\n4. 告警统计:\n");
+    printf("   总告警次数: %d\n", @alerts);
+    printf("   平均告警频率: %.2f 次/分钟\n", @alerts / ($total_time / 60));
+    
+    // 5. 性能建议
+    printf("\n5. 性能建议:\n");
+    
+    $avg_cpu = (@total_cpu_time / 1000000000) / $total_time * 100;
+    if ($avg_cpu > 70) {
+        printf("   ⚠  CPU使用率较高 (%.1f%%)，建议检查CPU密集型进程\n", $avg_cpu);
+    }
+    
+    $avg_io = @io_bytes / 1024 / 1024 / $total_time;
+    if ($avg_io > 50) {
+        printf("   ⚠  磁盘I/O较高 (%.1f MB/s)，建议优化磁盘访问\n", $avg_io);
+    }
+    
+    $avg_net = (@net_tx_bytes + @net_rx_bytes) / 1024 / 1024 / $total_time;
+    if ($avg_net > 20) {
+        printf("   ⚠  网络流量较高 (%.1f MB/s)，建议检查网络应用\n", $avg_net);
+    }
+    
+    if ($avg_cpu < 30 && $avg_io < 10 && $avg_net < 5) {
+        printf("   ✅ 系统运行良好，资源使用在合理范围内\n");
+    }
+    
+    printf("\n===========================================================\n");
+    printf("监控结束时间: %s\n", strftime("%Y-%m-%d %H:%M:%S", nsecs));
+    printf("感谢使用 eBPF 高级跟踪系统！\n");
+    printf("===========================================================\n");
+}

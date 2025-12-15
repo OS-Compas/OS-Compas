@@ -1,0 +1,95 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * trace_kmalloc.bt
+ * 跟踪kmalloc内存分配，显示请求大小和调用者
+ */
+
+#include <linux/slab.h>
+
+BEGIN
+{
+    printf("开始跟踪kmalloc内存分配...\n");
+    printf("时间戳(ms)\t进程\t\tPID\t大小(bytes)\t调用栈\n");
+    printf("================================================================\n");
+    
+    @start_time = nsecs;
+}
+
+// 跟踪kmalloc调用
+kprobe:__kmalloc,
+kprobe:kmalloc,
+kprobe:kmalloc_node
+{
+    $size = arg0;      // 请求的内存大小
+    $gfp_flags = arg1; // GFP标志
+    $node = arg2;      // NUMA节点（kmalloc_node）
+    
+    // 获取调用栈前3层
+    $stack = kstack(3);
+    
+    // 解析GFP标志
+    $gfp_str = "";
+    if ($gfp_flags & 0x10)   { $gfp_str = $gfp_str . "ZERO|"; }     // __GFP_ZERO
+    if ($gfp_flags & 0x40)   { $gfp_str = $gfp_str . "HIGH|"; }     // __GFP_HIGH
+    if ($gfp_flags & 0x80)   { $gfp_str = $gfp_str . "FS|"; }       // __GFP_FS
+    if ($gfp_flags & 0x800)  { $gfp_str = $gfp_str . "COMP|"; }     // __GFP_COMP
+    if ($gfp_flags & 0x1000) { $gfp_str = $gfp_str . "NOWARN|"; }   // __GFP_NOWARN
+    if ($gfp_flags & 0x2000) { $gfp_str = $gfp_str . "RETRY|"; }    // __GFP_RETRY_MAYFAIL
+    
+    $timestamp = (nsecs - @start_time) / 1000000;
+    
+    printf("%-12d %-16s %-6d %-12d [%s]\n", 
+           $timestamp, comm, pid, $size, $gfp_str);
+    
+    // 统计信息
+    @total_allocations = count();
+    @total_bytes = sum($size);
+    @allocs_by_process[comm] = count();
+    @bytes_by_process[comm] = sum($size);
+    
+    // 大小分布
+    @size_distribution = hist($size);
+    
+    // 记录调用栈（限制数量避免内存占用过大）
+    if (@total_allocations < 1000) {
+        @callers[$stack] = count();
+    }
+}
+
+// 跟踪kfree调用
+kprobe:kfree
+{
+    $ptr = arg0;
+    @frees = count();
+}
+
+interval:s:5
+{
+    printf("\n[快照] 分配: %d 次, 释放: %d 次, 总大小: %.2f MB\n",
+           @total_allocations, @frees, @total_bytes / 1024.0 / 1024.0);
+}
+
+END
+{
+    printf("\n=== 内存分配统计 ===\n");
+    printf("总分配次数: %d\n", @total_allocations);
+    printf("总分配大小: %.2f MB\n", @total_bytes / 1024.0 / 1024.0);
+    printf("总释放次数: %d\n", @frees);
+    
+    printf("\n内存大小分布（字节）:\n");
+    print(@size_distribution);
+    
+    printf("\n按进程分配次数:\n");
+    print(@allocs_by_process, 10);
+    
+    printf("\n按进程分配大小（KB）:\n");
+    foreach ([$proc, $bytes] in @bytes_by_process + 10) {
+        printf("  %-16s %.2f\n", $proc, $bytes / 1024.0);
+    }
+    
+    if (count(@callers) > 0) {
+        printf("\nTop 10 调用栈:\n");
+        print(@callers, 10);
+    }
+}
