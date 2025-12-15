@@ -1,0 +1,25 @@
+# RT-Thread构建脚本
+import os
+from building import *
+
+# 获取当前目录
+cwd = GetCurrentDir()
+
+# 添加头文件路径
+src = [cwd]
+path = [cwd]
+
+# 定义源文件
+group = DefineGroup('iot_sensor', 
+    [
+        'main.c',
+        'sensor_dht.c',
+        'wifi_esp8266.c',
+        'mqtt_client.c',
+        'oled_display.c'
+    ], 
+    depend = ['PKG_USING_PAHOMQTT'], 
+    CPPPATH = path)
+
+# 返回组
+Return('group')
