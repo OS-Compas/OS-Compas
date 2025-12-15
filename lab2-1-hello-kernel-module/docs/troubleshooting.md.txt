@@ -1,0 +1,241 @@
+实验2.1 故障排除指南
+🚨 常见问题速查表
+1. 编译问题
+问题：make: /lib/modules/xxx/build: No such file or directory
+
+bash
+# 解决方案：安装内核头文件
+sudo apt update
+sudo apt install linux-headers-$(uname -r)
+
+# 验证安装
+ls /lib/modules/$(uname -r)/build
+问题：Makefile 报错
+
+bash
+# 确保安装了编译工具
+sudo apt install build-essential
+
+# 清理后重新编译
+make clean && make
+2. 模块加载问题
+问题：Operation not permitted
+
+bash
+# 使用sudo权限
+sudo insmod hello.ko
+问题：Invalid parameters
+
+bash
+# 检查参数格式
+sudo insmod hello.ko whom="Student" howmany=3 debug=1
+
+# 查看正确的参数名和类型
+modinfo hello.ko
+问题：File exists
+
+bash
+# 模块已加载，先卸载
+sudo rmmod hello
+
+# 检查模块状态
+lsmod | grep hello
+3. 看不到输出消息
+问题：dmesg 没有显示问候信息
+
+bash
+# 查看所有级别的消息
+dmesg | tail -20
+
+# 或者只看info及以上级别
+dmesg -l info,notice,warn,err | tail -10
+
+# 实时监控
+sudo dmesg -w
+问题：调试消息不显示
+
+bash
+# 加载时启用debug参数
+sudo insmod hello.ko debug=1
+
+# 或者调整内核日志级别
+echo 8 > /proc/sys/kernel/printk
+4. 模块卸载问题
+问题：Module hello is not currently loaded
+
+bash
+# 检查模块是否真的加载了
+lsmod | grep hello
+问题：Module hello is in use
+
+bash
+# 查看使用该模块的进程
+sudo lsof | grep hello
+
+# 或者重启系统（极端情况）
+sudo reboot
+🔧 环境检查清单
+快速验证脚本
+bash
+#!/bin/bash
+echo "=== 环境检查 ==="
+echo "1. 内核版本: $(uname -r)"
+echo "2. 头文件: $(ls /lib/modules/$(uname -r)/build 2>/dev/null || echo '未找到')"
+echo "3. 编译器: $(gcc --version 2>/dev/null | head -1 || echo '未安装')"
+echo "4. Make工具: $(make --version 2>/dev/null | head -1 || echo '未安装')"
+echo "5. 当前用户: $(whoami)"
+echo "=== 检查完成 ==="
+分步验证
+bash
+# 步骤1：检查内核头文件
+uname -r
+ls /lib/modules/$(uname -r)/build
+
+# 步骤2：检查编译工具
+gcc --version
+make --version
+
+# 步骤3：检查权限
+groups | grep sudo
+
+# 步骤4：检查模块工具
+which insmod
+which rmmod
+which modinfo
+🐛 调试技巧
+1. 详细构建信息
+bash
+# 显示详细编译过程
+make V=1
+
+# 并行编译（加快速度）
+make -j4
+2. 模块信息检查
+bash
+# 查看模块详细信息
+modinfo hello.ko
+
+# 检查模块依赖
+modprobe --show-depends hello
+
+# 查看已加载模块的参数
+cat /sys/module/hello/parameters/* 2>/dev/null || echo "模块未加载"
+3. 系统日志检查
+bash
+# 查看系统日志
+sudo journalctl -xe
+
+# 查看内核相关日志
+sudo journalctl -k --since "5 minutes ago"
+
+# 查看启动日志
+dmesg | grep -i error
+💻 发行版特定问题
+Ubuntu/Debian
+bash
+# 如果标准方法无效
+sudo apt install linux-headers-generic
+sudo apt install build-essential
+
+# 更新系统
+sudo apt update && sudo apt upgrade
+CentOS/RHEL
+bash
+# 安装开发工具
+sudo yum groupinstall "Development Tools"
+sudo yum install kernel-devel-$(uname -r)
+
+# 或者使用dnf
+sudo dnf install kernel-devel-$(uname -r)
+Arch Linux
+bash
+# 安装内核头文件
+sudo pacman -S linux-headers
+
+# 如果使用LTS内核
+sudo pacman -S linux-lts-headers
+🛡️ 紧急恢复
+模块导致系统不稳定
+bash
+# 立即卸载模块
+sudo rmmod hello
+
+# 如果无法卸载，重启系统
+sudo reboot
+
+# 防止模块自动加载
+echo "blacklist hello" | sudo tee /etc/modprobe.d/hello-blacklist.conf
+内核崩溃（罕见情况）
+强制重启系统
+
+启动时选择恢复模式
+
+删除或重命名有问题的模块文件
+
+📋 标准操作流程
+成功的工作流程
+bash
+# 1. 进入源码目录
+cd src
+
+# 2. 编译模块
+make
+
+# 3. 检查生成的模块文件
+ls -la hello.ko
+
+# 4. 查看模块信息
+modinfo hello.ko
+
+# 5. 加载模块（带参数）
+sudo insmod hello.ko whom="Linux" howmany=2 debug=1
+
+# 6. 验证加载
+lsmod | grep hello
+
+# 7. 查看输出
+dmesg | tail -10
+
+# 8. 卸载模块
+sudo rmmod hello
+
+# 9. 验证卸载
+dmesg | tail -5
+❓ 获取更多帮助
+提供的信息
+当寻求帮助时，请提供：
+
+操作系统和版本
+
+内核版本 (uname -r)
+
+完整的错误信息
+
+已经尝试的解决步骤
+
+有用的诊断命令
+bash
+# 系统信息
+cat /etc/os-release
+uname -a
+
+# 模块相关信息
+lsmod
+dmesg | tail -30
+
+# 构建环境
+make --version
+gcc --version
+✅ 快速测试脚本
+创建一个测试脚本 quick_test.sh：
+
+bash
+#!/bin/bash
+echo "快速测试实验2.1..."
+make clean
+make
+sudo rmmod hello 2>/dev/null
+sudo insmod hello.ko whom="Test" howmany=1 debug=1
+dmesg | tail -5
+sudo rmmod hello
+echo "测试完成！"

@@ -1,0 +1,52 @@
+# hello_param 内核模块 Makefile
+
+obj-m += hello_param.o
+
+KDIR ?= /lib/modules/$(shell uname -r)/build
+PWD := $(shell pwd)
+
+default:
+	@echo "编译 hello_param 内核模块..."
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+	@echo "清理完成"
+
+load:
+	sudo insmod hello_param.ko whom="ParamTest" howmany=2 debug=1
+
+load_custom:
+	sudo insmod hello_param.ko whom="Student" howmany=3 debug=1 delay_ms=500 prefix="Greetings"
+
+unload:
+	sudo rmmod hello_param
+
+info:
+	modinfo hello_param.ko
+
+status:
+	@lsmod | grep hello_param || echo "模块未加载"
+
+params:
+	@if lsmod | grep -q hello_param; then \
+		echo "当前参数:"; \
+		ls /sys/module/hello_param/parameters/ | while read param; do \
+			echo "  $$param = $$(cat /sys/module/hello_param/parameters/$$param 2>/dev/null)"; \
+		done; \
+	else \
+		echo "模块未加载"; \
+	fi
+
+test: default load
+	@sleep 1
+	@echo "=== 模块状态 ==="
+	@make status
+	@echo "=== 参数值 ==="
+	@make params
+	@echo "=== 内核消息 ==="
+	@dmesg | tail -15 | grep -E "(hello_param|Greetings)"
+	@sleep 2
+	@make unload
+
+.PHONY: default clean load load_custom unload info status params test

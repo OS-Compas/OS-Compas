@@ -1,0 +1,231 @@
+/**
+ * hello_param.c - 带参数的内核模块示例
+ * 
+ * 展示如何定义和使用内核模块参数
+ * 支持字符串、整数、布尔值等多种参数类型
+ */
+
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/moduleparam.h>
+
+/* 模块信息 */
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("OS-Lab-Team");
+MODULE_DESCRIPTION("Advanced hello world kernel module with multiple parameter types");
+MODULE_VERSION("2.0");
+
+/* ========== 参数定义区域 ========== */
+
+/* 字符串参数 - 问候对象 */
+static char *whom = "world";
+module_param(whom, charp, 0644);
+MODULE_PARM_DESC(whom, "指定问候的对象名称 (默认: world)");
+
+/* 整数参数 - 问候次数 */
+static int howmany = 1;
+module_param(howmany, int, 0644);
+MODULE_PARM_DESC(howmany, "指定问候的次数 (范围: 1-10, 默认: 1)");
+
+/* 布尔参数 - 调试模式 */
+static bool debug = false;
+module_param(debug, bool, 0644);
+MODULE_PARM_DESC(debug, "启用调试输出 (true/false, 默认: false)");
+
+/* 整数参数 - 问候间隔(毫秒) */
+static int delay_ms = 0;
+module_param(delay_ms, int, 0644);
+MODULE_PARM_DESC(delay_ms, "问候之间的延迟(毫秒) (范围: 0-5000, 默认: 0)");
+
+/* 字符串参数 - 问候前缀 */
+static char *prefix = "Hello";
+module_param(prefix, charp, 0644);
+MODULE_PARM_DESC(prefix, "问候语的前缀 (默认: Hello)");
+
+/* 整数参数 - 消息级别 */
+static int log_level = 6; /* KERN_INFO */
+module_param(log_level, int, 0644);
+MODULE_PARM_DESC(log_level, "日志级别 (0-7, 默认: 6-KERN_INFO)");
+
+/* ========== 辅助函数 ========== */
+
+/**
+ * 根据日志级别数值返回对应的printk前缀
+ */
+static const char *get_log_level_prefix(int level)
+{
+    switch (level) {
+        case 0: return KERN_EMERG;
+        case 1: return KERN_ALERT;
+        case 2: return KERN_CRIT;
+        case 3: return KERN_ERR;
+        case 4: return KERN_WARNING;
+        case 5: return KERN_NOTICE;
+        case 6: return KERN_INFO;
+        case 7: return KERN_DEBUG;
+        default: return KERN_INFO;
+    }
+}
+
+/**
+ * 简单的延时函数（忙等待）
+ * 注意：在实际驱动中应使用更好的延时方法
+ */
+static void simple_delay(unsigned long ms)
+{
+    unsigned long i, j;
+    for (i = 0; i < ms; i++) {
+        for (j = 0; j < 100000; j++) {
+            barrier(); /* 防止编译器优化 */
+        }
+    }
+}
+
+/**
+ * 参数验证函数
+ */
+static int validate_parameters(void)
+{
+    /* 验证问候次数 */
+    if (howmany < 1 || howmany > 10) {
+        printk(KERN_ERR "hello_param: 错误: howmany 必须在 1-10 之间，当前值: %d\n", howmany);
+        return -EINVAL;
+    }
+    
+    /* 验证延迟时间 */
+    if (delay_ms < 0 || delay_ms > 5000) {
+        printk(KERN_ERR "hello_param: 错误: delay_ms 必须在 0-5000 之间，当前值: %d\n", delay_ms);
+        return -EINVAL;
+    }
+    
+    /* 验证日志级别 */
+    if (log_level < 0 || log_level > 7) {
+        printk(KERN_ERR "hello_param: 错误: log_level 必须在 0-7 之间，当前值: %d\n", log_level);
+        return -EINVAL;
+    }
+    
+    /* 验证字符串参数 */
+    if (whom == NULL || strlen(whom) == 0) {
+        printk(KERN_ERR "hello_param: 错误: whom 不能为空\n");
+        return -EINVAL;
+    }
+    
+    if (prefix == NULL || strlen(prefix) == 0) {
+        printk(KERN_ERR "hello_param: 错误: prefix 不能为空\n");
+        return -EINVAL;
+    }
+    
+    return 0;
+}
+
+/**
+ * 打印当前参数设置
+ */
+static void print_parameters(void)
+{
+    const char *level_prefix = get_log_level_prefix(log_level);
+    
+    printk(level_prefix "hello_param: 当前参数设置:\n");
+    printk(level_prefix "  whom     = %s\n", whom);
+    printk(level_prefix "  howmany  = %d\n", howmany);
+    printk(level_prefix "  debug    = %s\n", debug ? "true" : "false");
+    printk(level_prefix "  delay_ms = %d\n", delay_ms);
+    printk(level_prefix "  prefix   = %s\n", prefix);
+    printk(level_prefix "  log_level= %d\n", log_level);
+}
+
+/* ========== 模块主要函数 ========== */
+
+/**
+ * 模块初始化函数
+ */
+static int __init hello_param_init(void)
+{
+    int i;
+    int ret;
+    const char *level_prefix = get_log_level_prefix(log_level);
+    
+    if (debug) {
+        printk(KERN_DEBUG "hello_param: 开始初始化...\n");
+    }
+    
+    /* 参数验证 */
+    ret = validate_parameters();
+    if (ret < 0) {
+        return ret;
+    }
+    
+    /* 打印参数设置 */
+    print_parameters();
+    
+    /* 执行问候 */
+    printk(level_prefix "hello_param: 开始问候...\n");
+    
+    for (i = 0; i < howmany; i++) {
+        /* 输出问候语 */
+        printk(level_prefix "%s, %s! (第 %d/%d 次)\n", 
+               prefix, whom, i + 1, howmany);
+        
+        /* 如果不是最后一次问候，且设置了延迟，则等待 */
+        if (i < howmany - 1 && delay_ms > 0) {
+            if (debug) {
+                printk(KERN_DEBUG "hello_param: 等待 %d 毫秒...\n", delay_ms);
+            }
+            simple_delay(delay_ms);
+        }
+    }
+    
+    printk(level_prefix "hello_param: 问候完成！\n");
+    printk(level_prefix "hello_param: 模块加载成功\n");
+    
+    return 0;
+}
+
+/**
+ * 模块清理函数
+ */
+static void __exit hello_param_exit(void)
+{
+    const char *level_prefix = get_log_level_prefix(log_level);
+    
+    if (debug) {
+        printk(KERN_DEBUG "hello_param: 开始清理...\n");
+    }
+    
+    printk(level_prefix "再见, %s! hello_param 模块已卸载。\n", whom);
+    
+    if (debug) {
+        printk(KERN_DEBUG "hello_param: 参数设置回顾:\n");
+        printk(KERN_DEBUG "  总共问候了 %s %d 次\n", whom, howmany);
+        printk(KERN_DEBUG "  每次问候间隔 %d 毫秒\n", delay_ms);
+    }
+    
+    printk(level_prefix "hello_param: 模块卸载成功\n");
+}
+
+/* ========== 模块注册 ========== */
+
+module_init(hello_param_init);
+module_exit(hello_param_exit);
+
+/* ========== 模块信息补充 ========== */
+
+MODULE_INFO(parmtype, "whom:charp");
+MODULE_INFO(parmtype, "howmany:int");
+MODULE_INFO(parmtype, "debug:bool");
+MODULE_INFO(parmtype, "delay_ms:int");
+MODULE_INFO(parmtype, "prefix:charp");
+MODULE_INFO(parmtype, "log_level:int");
+
+/* 示例使用说明 */
+/*
+ * 加载示例:
+ * sudo insmod hello_param.ko whom="Linux" howmany=3 debug=true delay_ms=1000
+ * sudo insmod hello_param.ko prefix="Hi" whom="Developer" log_level=7
+ * sudo insmod hello_param.ko howmany=5 delay_ms=500
+ *
+ * 查看参数:
+ * modinfo hello_param.ko
+ * cat /sys/module/hello_param/parameters/whom
+ */

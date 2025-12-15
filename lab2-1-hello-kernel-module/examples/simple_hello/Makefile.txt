@@ -1,0 +1,24 @@
+# 最简单的内核模块 Makefile
+
+obj-m += simple_hello.o
+
+KDIR ?= /lib/modules/$(shell uname -r)/build
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+load:
+	sudo insmod simple_hello.ko
+
+unload:
+	sudo rmmod simple_hello
+
+test: all load
+	@sleep 1
+	@dmesg | tail -5
+	@make unload
+
+.PHONY: all clean load unload test

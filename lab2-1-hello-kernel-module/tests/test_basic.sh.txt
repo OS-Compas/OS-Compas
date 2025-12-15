@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# 基础功能测试脚本
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_DIR="$SCRIPT_DIR/../scripts"
+
+echo "=== Basic Functionality Test ==="
+
+# 清理之前的模块
+echo "Step 1: Cleaning up previous module..."
+sudo rmmod hello 2>/dev/null || true
+
+# 构建模块
+echo "Step 2: Building module..."
+"$SCRIPTS_DIR/build.sh"
+
+# 测试1: 默认参数加载
+echo -e "\nTest 1: Loading with default parameters..."
+"$SCRIPTS_DIR/load_module.sh" "TestUser" 1 1
+sleep 1
+
+# 检查内核消息
+echo -e "\nChecking kernel messages..."
+if dmesg | tail -10 | grep -q "Hello, TestUser"; then
+    echo "✓ Test 1 PASSED: Greeting message found"
+else
+    echo "✗ Test 1 FAILED: Greeting message not found"
+    exit 1
+fi
+
+# 测试2: 多个问候
+echo -e "\nTest 2: Loading with multiple greetings..."
+sudo rmmod hello
+"$SCRIPTS_DIR/load_module.sh" "MultiTest" 3 1
+sleep 1
+
+GREETING_COUNT=$(dmesg | tail -15 | grep -c "Hello, MultiTest")
+if [ "$GREETING_COUNT" -eq 3 ]; then
+    echo "✓ Test 2 PASSED: Found $GREETING_COUNT greetings"
+else
+    echo "✗ Test 2 FAILED: Expected 3 greetings, found $GREETING_COUNT"
+    exit 1
+fi
+
+# 测试3: 卸载模块
+echo -e "\nTest 3: Unloading module..."
+sudo rmmod hello
+sleep 1
+
+if dmesg | tail -5 | grep -q "Goodbye"; then
+    echo "✓ Test 3 PASSED: Goodbye message found"
+else
+    echo "✗ Test 3 FAILED: Goodbye message not found"
+    exit 1
+fi
+
+echo -e "\n=== All tests PASSED! ==="

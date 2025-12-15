@@ -1,0 +1,44 @@
+/**
+ * simple_hello.c - 最简单的内核模块示例
+ * 
+ * 最简化的Hello World内核模块
+ * 适合初学者理解内核模块的基本结构
+ */
+
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+
+/* 最简单的模块信息 */
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("OS-Lab-Team");
+MODULE_DESCRIPTION("The simplest hello world kernel module");
+
+/**
+ * 模块初始化函数
+ * 在模块加载时自动调用
+ */
+static int __init simple_hello_init(void)
+{
+    /* 打印问候信息到内核日志 */
+    printk(KERN_INFO "Hello, kernel world!\n");
+    printk(KERN_INFO "Simple hello module loaded successfully.\n");
+    
+    /* 返回0表示初始化成功 */
+    return 0;
+}
+
+/**
+ * 模块清理函数
+ * 在模块卸载时自动调用
+ */
+static void __exit simple_hello_exit(void)
+{
+    /* 打印告别信息 */
+    printk(KERN_INFO "Goodbye, kernel world!\n");
+    printk(KERN_INFO "Simple hello module unloaded successfully.\n");
+}
+
+/* 注册模块的初始化和清理函数 */
+module_init(simple_hello_init);
+module_exit(simple_hello_exit);

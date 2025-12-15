@@ -1,0 +1,22 @@
+编译和运行
+bash
+# 编译模块
+make
+
+# 加载模块
+sudo insmod simple_hello.ko
+
+# 查看输出
+dmesg | tail -5
+
+# 卸载模块
+sudo rmmod simple_hello
+
+# 一键测试
+make test
+预期输出
+text
+[    timestamp] Hello, kernel world!
+[    timestamp] Simple hello module loaded successfully.
+[    timestamp] Goodbye, kernel world!
+[    timestamp] Simple hello module unloaded successfully.

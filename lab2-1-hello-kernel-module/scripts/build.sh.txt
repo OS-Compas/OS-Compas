@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Hello内核模块构建脚本
+
+set -e  # 遇到错误立即退出
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC_DIR="$SCRIPT_DIR/../src"
+BUILD_DIR="$SCRIPT_DIR/../build"
+
+echo "=== Hello Kernel Module Build Script ==="
+
+# 检查是否在正确的目录
+if [ ! -f "$SRC_DIR/hello.c" ]; then
+    echo "Error: hello.c not found in $SRC_DIR"
+    exit 1
+fi
+
+# 创建构建目录
+mkdir -p "$BUILD_DIR"
+
+# 检查内核头文件
+echo "Checking kernel headers..."
+if [ ! -d "/lib/modules/$(uname -r)/build" ]; then
+    echo "Error: Kernel headers not found. Please install them:"
+    echo "  Ubuntu/Debian: sudo apt install linux-headers-$(uname -r)"
+    echo "  CentOS/RHEL: sudo yum install kernel-devel-$(uname -r)"
+    exit 1
+fi
+
+# 进入源码目录
+cd "$SRC_DIR"
+
+# 清理之前的构建
+echo "Cleaning previous build..."
+make clean > /dev/null 2>&1 || true
+
+# 构建模块
+echo "Building kernel module..."
+if make; then
+    # 复制生成的文件到构建目录
+    cp hello.ko "$BUILD_DIR/"
+    cp hello_test "$BUILD_DIR/" 2>/dev/null || true
+    
+    echo "Build successful!"
+    echo "Generated files:"
+    ls -la "$BUILD_DIR"/hello.ko
+    
+    # 显示模块信息
+    echo -e "\nModule information:"
+    modinfo "$BUILD_DIR/hello.ko"
+else
+    echo "Build failed!"
+    exit 1
+fi

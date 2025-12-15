@@ -1,0 +1,52 @@
+/**
+ * hello_test.c - 用户空间测试程序
+ * 用于验证内核模块的功能
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+
+#define DEVICE_PATH "/dev/hello"  // 如果模块创建设备节点可用
+
+void print_usage(const char *program_name)
+{
+    printf("Usage: %s [options]\n", program_name);
+    printf("Options:\n");
+    printf("  -h, --help          Show this help message\n");
+    printf("  -s, --status        Check module status\n");
+    printf("  -l, --logs          Show recent kernel messages\n");
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc == 1) {
+        printf("Hello Kernel Module Test Program\n");
+        printf("Use '%s --help' for usage information\n", argv[0]);
+        return 0;
+    }
+    
+    if (argc == 2) {
+        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+            print_usage(argv[0]);
+        }
+        else if (strcmp(argv[1], "-s") == 0 || strcmp(argv[1], "--status") == 0) {
+            printf("Checking module status...\n");
+            system("lsmod | grep hello");
+        }
+        else if (strcmp(argv[1], "-l") == 0 || strcmp(argv[1], "--logs") == 0) {
+            printf("Recent kernel messages:\n");
+            system("dmesg | tail -15 | grep -E '(hello|Hello|Goodbye)'");
+        }
+        else {
+            printf("Unknown option: %s\n", argv[1]);
+            print_usage(argv[0]);
+            return 1;
+        }
+    }
+    
+    return 0;
+}

@@ -1,0 +1,401 @@
+#!/bin/bash
+
+# test_params.sh - 参数测试脚本
+# 专门用于测试实验2.1中内核模块的参数功能
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="$SCRIPT_DIR/../build"
+MODULE_PATH="$BUILD_DIR/hello.ko"
+MODULE_PARAM_PATH="$SCRIPT_DIR/../src/hello_param.ko"
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# 日志函数
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_test() {
+    echo -e "${CYAN}[TEST]${NC} $1"
+}
+
+# 清理函数
+cleanup() {
+    log_info "清理环境..."
+    sudo rmmod hello 2>/dev/null
+    sudo rmmod hello_param 2>/dev/null
+    # 清理内核消息缓冲区
+    sudo dmesg -C >/dev/null 2>&1
+}
+
+# 检查模块文件
+check_module_files() {
+    if [ ! -f "$MODULE_PATH" ]; then
+        log_error "主模块文件不存在: $MODULE_PATH"
+        log_info "请先运行 build.sh 编译模块"
+        return 1
+    fi
+    
+    if [ ! -f "$MODULE_PARAM_PATH" ]; then
+        log_warning "参数模块文件不存在: $MODULE_PARAM_PATH"
+        log_info "正在编译参数模块..."
+        cd "$SCRIPT_DIR/../src" && make hello_param.ko
+        if [ ! -f "$MODULE_PARAM_PATH" ]; then
+            log_error "无法编译参数模块"
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
+# 显示模块参数信息
+show_module_params() {
+    local module_path=$1
+    local module_name=$2
+    
+    log_test "显示 $module_name 模块参数信息:"
+    modinfo "$module_path" | grep -E "(parm|description|^name)" | while read line; do
+        echo "  $line"
+    done
+    echo ""
+}
+
+# 测试基础参数功能
+test_basic_params() {
+    log_test "测试 1: 基础参数功能"
+    
+    # 测试默认参数
+    log_info "加载模块（默认参数）..."
+    sudo insmod "$MODULE_PATH"
+    local default_output=$(dmesg | tail -2 | grep -o "Hello, world!" | head -1)
+    sudo rmmod hello
+    
+    if [ "$default_output" = "Hello, world!" ]; then
+        log_success "默认参数测试通过"
+    else
+        log_error "默认参数测试失败"
+        return 1
+    fi
+    
+    # 测试自定义参数
+    log_info "加载模块（自定义参数）..."
+    sudo insmod "$MODULE_PATH" whom="Linux" howmany=3 debug=1
+    local custom_output=$(dmesg | tail -5 | grep -c "Hello, Linux!")
+    sudo rmmod hello
+    
+    if [ "$custom_output" -eq 3 ]; then
+        log_success "自定义参数测试通过 (找到 $custom_output 次问候)"
+    else
+        log_error "自定义参数测试失败 (期望3次，找到 $custom_output 次)"
+        return 1
+    fi
+    
+    return 0
+}
+
+# 测试参数边界值
+test_param_boundaries() {
+    log_test "测试 2: 参数边界值"
+    
+    # 测试参数范围验证
+    log_info "测试无效参数 (howmany=0)..."
+    sudo insmod "$MODULE_PATH" howmany=0 2>&1 | grep -q "Invalid"
+    if [ $? -eq 0 ]; then
+        log_success "参数范围验证测试通过"
+    else
+        log_error "参数范围验证测试失败"
+        sudo rmmod hello 2>/dev/null
+        return 1
+    fi
+    
+    # 测试有效边界值
+    log_info "测试有效边界值 (howmany=10)..."
+    sudo insmod "$MODULE_PATH" howmany=10 whom="BoundaryTest" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        local count=$(dmesg | tail -12 | grep -c "Hello, BoundaryTest!")
+        sudo rmmod hello
+        if [ "$count" -eq 10 ]; then
+            log_success "边界值测试通过 (10次问候)"
+        else
+            log_error "边界值测试失败 (期望10次，找到 $count 次)"
+            return 1
+        fi
+    else
+        log_error "边界值测试加载失败"
+        return 1
+    fi
+    
+    return 0
+}
+
+# 测试高级参数模块
+test_advanced_params() {
+    log_test "测试 3: 高级参数模块"
+    
+    if [ ! -f "$MODULE_PARAM_PATH" ]; then
+        log_warning "高级参数模块未编译，跳过此测试"
+        return 0
+    fi
+    
+    # 测试多个参数组合
+    log_info "测试多参数组合..."
+    sudo insmod "$MODULE_PARAM_PATH" whom="AdvancedTest" howmany=2 debug=1 delay_ms=100 prefix="Greetings"
+    
+    if [ $? -eq 0 ]; then
+        # 检查输出内容
+        local output=$(dmesg | tail -10)
+        local greeting_count=$(echo "$output" | grep -c "Greetings, AdvancedTest!")
+        local debug_count=$(echo "$output" | grep -c "HELLO_DEBUG")
+        
+        sudo rmmod hello_param
+        
+        if [ "$greeting_count" -eq 2 ] && [ "$debug_count" -gt 0 ]; then
+            log_success "高级参数测试通过"
+            log_info "  - 问候次数: $greeting_count"
+            log_info "  - 调试信息: 找到 $debug_count 条"
+        else
+            log_error "高级参数测试失败"
+            return 1
+        fi
+    else
+        log_error "高级参数模块加载失败"
+        return 1
+    fi
+    
+    return 0
+}
+
+# 测试参数持久化
+test_param_persistence() {
+    log_test "测试 4: 参数持久化检查"
+    
+    log_info "加载带参数的模块..."
+    sudo insmod "$MODULE_PATH" whom="PersistTest" howmany=1 debug=1
+    
+    # 检查sysfs中的参数值
+    if [ -d "/sys/module/hello/parameters" ]; then
+        local whom_value=$(cat /sys/module/hello/parameters/whom)
+        local howmany_value=$(cat /sys/module/hello/parameters/howmany)
+        local debug_value=$(cat /sys/module/hello/parameters/debug)
+        
+        log_info "Sysfs参数值:"
+        echo "  whom: $whom_value"
+        echo "  howmany: $howmany_value"
+        echo "  debug: $debug_value"
+        
+        if [ "$whom_value" = "PersistTest" ] && [ "$howmany_value" = "1" ] && [ "$debug_value" = "1" ]; then
+            log_success "参数持久化测试通过"
+        else
+            log_error "参数持久化测试失败"
+            sudo rmmod hello
+            return 1
+        fi
+    else
+        log_warning "无法访问sysfs参数目录"
+    fi
+    
+    sudo rmmod hello
+    return 0
+}
+
+# 测试错误参数处理
+test_error_handling() {
+    log_test "测试 5: 错误参数处理"
+    
+    # 测试空字符串参数
+    log_info "测试空字符串参数..."
+    sudo insmod "$MODULE_PATH" whom="" 2>&1 | grep -q "cannot be empty"
+    if [ $? -eq 0 ]; then
+        log_success "空字符串参数验证通过"
+    else
+        log_error "空字符串参数验证失败"
+        return 1
+    fi
+    
+    # 测试超范围参数
+    log_info "测试超范围参数..."
+    sudo insmod "$MODULE_PATH" howmany=20 2>&1 | grep -q "must be between"
+    if [ $? -eq 0 ]; then
+        log_success "参数范围验证通过"
+    else
+        log_error "参数范围验证失败"
+        return 1
+    fi
+    
+    return 0
+}
+
+# 运行所有测试
+run_all_tests() {
+    local tests_passed=0
+    local tests_total=5
+    
+    log_info "开始参数测试套件"
+    echo "=========================================="
+    
+    # 测试1: 基础参数功能
+    if test_basic_params; then
+        ((tests_passed++))
+    fi
+    echo ""
+    
+    # 测试2: 参数边界值
+    if test_param_boundaries; then
+        ((tests_passed++))
+    fi
+    echo ""
+    
+    # 测试3: 高级参数模块
+    if test_advanced_params; then
+        ((tests_passed++))
+    fi
+    echo ""
+    
+    # 测试4: 参数持久化
+    if test_param_persistence; then
+        ((tests_passed++))
+    fi
+    echo ""
+    
+    # 测试5: 错误参数处理
+    if test_error_handling; then
+        ((tests_passed++))
+    fi
+    echo ""
+    
+    # 显示测试结果
+    echo "=========================================="
+    if [ "$tests_passed" -eq "$tests_total" ]; then
+        log_success "所有测试通过! ($tests_passed/$tests_total)"
+        return 0
+    else
+        log_warning "测试完成: 通过 $tests_passed/$tests_total"
+        return 1
+    fi
+}
+
+# 显示使用说明
+show_usage() {
+    echo "用法: $0 [选项]"
+    echo ""
+    echo "选项:"
+    echo "  -h, --help          显示此帮助信息"
+    echo "  -c, --cleanup       只清理环境，不运行测试"
+    echo "  -s, --single TEST   运行单个测试 (1-5)"
+    echo "  -l, --list          列出所有测试"
+    echo ""
+    echo "单个测试选项:"
+    echo "  1 - 基础参数功能"
+    echo "  2 - 参数边界值"
+    echo "  3 - 高级参数模块"
+    echo "  4 - 参数持久化"
+    echo "  5 - 错误参数处理"
+    echo ""
+    echo "示例:"
+    echo "  $0                  运行所有测试"
+    echo "  $0 -s 1            只运行基础参数测试"
+    echo "  $0 -c              清理测试环境"
+}
+
+# 主函数
+main() {
+    local cleanup_only=false
+    local single_test=""
+    
+    # 解析命令行参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            -c|--cleanup)
+                cleanup_only=true
+                shift
+                ;;
+            -s|--single)
+                single_test="$2"
+                shift 2
+                ;;
+            -l|--list)
+                echo "可用测试:"
+                echo "  1 - 基础参数功能"
+                echo "  2 - 参数边界值" 
+                echo "  3 - 高级参数模块"
+                echo "  4 - 参数持久化"
+                echo "  5 - 错误参数处理"
+                exit 0
+                ;;
+            *)
+                log_error "未知选项: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+    
+    # 显示标题
+    echo -e "${CYAN}=== 实验2.1 内核模块参数测试套件 ===${NC}"
+    echo ""
+    
+    # 清理环境
+    cleanup
+    
+    if [ "$cleanup_only" = true ]; then
+        log_success "环境清理完成"
+        exit 0
+    fi
+    
+    # 检查模块文件
+    if ! check_module_files; then
+        exit 1
+    fi
+    
+    # 显示模块信息
+    show_module_params "$MODULE_PATH" "hello"
+    if [ -f "$MODULE_PARAM_PATH" ]; then
+        show_module_params "$MODULE_PARAM_PATH" "hello_param"
+    fi
+    
+    # 运行测试
+    if [ -n "$single_test" ]; then
+        case $single_test in
+            1) test_basic_params ;;
+            2) test_param_boundaries ;;
+            3) test_advanced_params ;;
+            4) test_param_persistence ;;
+            5) test_error_handling ;;
+            *)
+                log_error "无效的测试编号: $single_test"
+                show_usage
+                exit 1
+                ;;
+        esac
+    else
+        run_all_tests
+    fi
+}
+
+# 脚本入口
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

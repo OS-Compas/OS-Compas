@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# 内核模块加载脚本
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="$SCRIPT_DIR/../build"
+MODULE_PATH="$BUILD_DIR/hello.ko"
+
+echo "=== Hello Kernel Module Loader ==="
+
+# 检查模块文件
+if [ ! -f "$MODULE_PATH" ]; then
+    echo "Error: Module not found at $MODULE_PATH"
+    echo "Please run build.sh first"
+    exit 1
+fi
+
+# 检查是否已加载
+if lsmod | grep -q hello; then
+    echo "Module is already loaded. Unloading first..."
+    sudo rmmod hello || true
+    sleep 1
+fi
+
+# 设置模块参数
+WHOM="${1:-OSStudent}"
+HOWMANY="${2:-2}"
+DEBUG="${3:-1}"
+
+echo "Loading module with parameters:"
+echo "  whom=$WHOM"
+echo "  howmany=$HOWMANY"
+echo "  debug=$DEBUG"
+
+# 加载模块
+if sudo insmod "$MODULE_PATH" whom="$WHOM" howmany="$HOWMANY" debug="$DEBUG"; then
+    echo "Module loaded successfully!"
+    
+    # 显示加载信息
+    echo -e "\nModule status:"
+    lsmod | grep hello
+    
+    echo -e "\nRecent kernel messages:"
+    dmesg | tail -5
+else
+    echo "Failed to load module!"
+    exit 1
+fi
